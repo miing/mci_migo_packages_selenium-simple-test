@@ -1,0 +1,17 @@
+build
+dist
+docs/actions.rst
+ENV
+functest.wpu
+MANIFEST
+nosetests.xml
+pep8.log
+results
+src/sst.egg-info
+sst-deps
+sst_docs
+sst.wpr
+sst.wpu
+*.log
+src/testproject/testproj.db
+.tox
