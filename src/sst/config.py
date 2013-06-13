@@ -35,9 +35,6 @@ The `sst.config` module has the following information::
     # full path to the results directory
     config.results_directory
 
-    # is browsermob proxy enabled?
-    config.browsermob_enabled
-
     # flags for the current test run
     config.flags
 
@@ -45,12 +42,11 @@ The `sst.config` module has the following information::
     config.cache
 """
 
-browser_type = 'Firefox'
+browser_type = 'firefox'
 _current_context = None
 javascript_disabled = False
 shared_directory = None
 results_directory = None
-browsermob_enabled = False
 flags = []
 __args__ = {}
 cache = {}

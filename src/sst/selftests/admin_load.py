@@ -1,14 +1,11 @@
-from sst.actions import *
+import sst
+import sst.actions
+
+import helpers
 
 
-go_to('/admin/')
-assert_title_contains('Django site admin')
+helpers.setup_cleanup_test_db()
 
-# logout of Admin if needed
-elem = get_element(tag='title')
-if 'Log in' not in elem.text:
-    click_link(get_element(text='Log out'))
-    assert_title('Logged out | Django site admin')
-    refresh()
-
-assert_title('Log in | Django site admin')
+sst.actions.set_base_url('http://localhost:%s/' % sst.DEVSERVER_PORT)
+sst.actions.go_to('/admin/')
+sst.actions.assert_title('Log in | Django site admin')

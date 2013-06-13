@@ -4,7 +4,8 @@
    actions
    remote
    changelog
-
+   releasing
+   packaging
 
 ============================
     SST - Web Test Framework
@@ -14,7 +15,7 @@
 :Project Home: https://launchpad.net/selenium-simple-test
 :PyPI: http://pypi.python.org/pypi/sst
 :License: Apache License, Version 2.0
-:Author: Copyright (c) 2011-2012 Canonical Ltd.
+:Author: Copyright (c) 2011-2013 Canonical Ltd.
 
 
 ---------------------------------
@@ -24,10 +25,10 @@
 SST (selenium-simple-test) is a web test framework that uses Python
 to generate functional browser-based tests.
 
-Tests are made up of scripts, created by composing actions that drive
-a browser and assert conditions. You have the flexibilty of the full
-Python language, along with a convenient set of functions to simplify
-web testing.
+Tests are made up of scripts or test case classes, created by composing
+actions that drive a browser and assert conditions. You have the flexibilty
+of the full Python language, along with a convenient set of functions to
+simplify web testing.
 
 SST consists of:
 
@@ -40,7 +41,7 @@ SST consists of:
  * headless (xvfb) mode
  * screenshots on errors
 
-Test output can be displayed to the console, saved as an HTML report, or
+Test output is displayed to the console and optionally saved as 
 JUnit-compatible XML for compatibility with CI systems.
 
 
@@ -58,6 +59,13 @@ like this::
 
     $ sudo apt-get install python-pip xvfb
     $ sudo pip install -U sst
+
+or with a `virtualenv`::
+
+    $ sudo apt-get install python-virtualenv xvfb
+    $ virtualenv ENV
+    $ source ENV/bin/activate
+    (ENV)$ pip install sst
 
 * note: `xvfb` is only needed if you want to run SST in headless mode
 
@@ -104,9 +112,8 @@ These actions are defined in the following API:
 
 Usage: `sst-run <options> [testname]`
 
-* Calling sst-run with testname(s) as arguments will just run
-  those tests. The testnames should not include '.py' at
-  the end of the filename.
+* Calling sst-run with test regular expression(s) as arguments will run
+  only the tests matching one of these regular expressions.
 
 * You may optionally create a data file for data-driven
   testing.  Create a '^' delimited txt data file with the same
@@ -118,39 +125,22 @@ Options::
 
   -h, --help                show this help message and exit
   -d DIR_NAME               directory of test case files
-  -r REPORT_FORMAT          results report format (html, xml, console)
-  -b BROWSER_TYPE           select webdriver (Firefox, Chrome, Ie, etc)
+  -r REPORT_FORMAT          report type: xml
+  -b BROWSER_TYPE           select webdriver (Firefox, Chrome, PhantomJS, etc)
   -j                        disable javascript in browser
   -m SHARED_MODULES         directory for shared modules
   -q                        output less debugging info during test run
   -V                        print version info and exit
   -s                        save screenshots on failures
-  -x                        run browser in headless xserver
+  -x                        run browser in headless xserver (Xvfb)
   --failfast                stop test execution after first failure
   --debug                   drop into debugger on test fail or error
-  --with-flags=FLAGS        comma separated list of flags to run tests with
+  --with-flags=WITH_FLAGS   comma separated list of flags to run tests with
   --disable-flag-skips      run all tests, disable skipping tests due to flags
-  --extended-tracebacks     Add extra information (page source) to failure reports
-  --browsermob=BROWSERMOB   enable browsermob proxy (launcher location)
-  --test                    run selftests
-
-
------------------
-  Interactive use
------------------
-
-After installing sst, you can experiment with it from the python interactive
-interpreter by calling `start()` to launch the browser (Firefox by default).
-After that, you can call any of the actions as you would use them in a test::
-
-    >>> from sst.actions import *
-    >>> start()
-
-        Starting Firefox
-    >>> go_to('http://google.com')
-        Going to... http://google.com
-        Waiting for get_element
-    >>>
+  --extended-tracebacks     add extra information (page source) to failure reports
+  --collect-only            collect/print cases without running tests
+  --exclude=REGEXP          do not run the tests matching the regular expression
+  --test                    run selftests (acceptance tests with django server)
 
 
 --------------------
@@ -195,6 +185,120 @@ allows you to put Python packages/modules directly in your test directories
 if you want. A better option is to use the shared directory.
 
 
+--------------------------
+    Selecting tests to run
+--------------------------
+
+While a test suite is meant to fully cover a code base, there are times when
+you don't want to run all the tests but only the relevant ones covering the
+part you're focusing on.
+
+There are several ways to select the tests to run but first we need to
+define a few terms:
+
+All tests have a unique identifier (id) in a given tree:
+
+- for a script this is the python path leading to the file,
+  i.e. `dir.subdir.file` for script in the ``dir/subdir/file.py`` file,
+
+- for a regular test this is the python path to access the test method,
+  i.e. ``dir.subdir.file.class.method`` for a test method ``method`` in a
+  test class ``class`` in a ``dir/subdir/file.py`` file.
+
+``sst-run`` accepts patterns as arguments and will select only the tests
+that matches at least one of the patterns. It also accepts ``--exclude pattern``
+arguments, the selected tests will match none of the ``--exclude`` patterns.
+
+In both cases, these patterns are python regular expressions.
+
+The following commands will therefore run various selections of tests:
+
+* A single test::
+
+    sst-run ^dir.subdir.file.class.method
+
+  for regular tests or::
+
+    sst-run ^dir.subdir.file
+
+  for a script
+
+* All tests in a class::
+
+    sst-run ^dir.subdir.file.class
+
+* All tests in a file::
+
+    sst-run ^dir.subdir.file
+
+  note that if the file is a script a single test is run
+
+* All tests in a subdirectory::
+
+    sst-run ^dir.subdir
+
+* All tests in a directory (i.e. a subtree)::
+
+    sst-run ^dir
+
+* All tests in a subtree except for a specific subdirectory::
+
+    sst-run ^dir --exclude ^dir.subdir
+
+* The whole test suite::
+
+    sst-run 
+
+  when invoked at the root of the test tree.
+
+
+Note that '^' is used in the examples above to ensure that the test ids
+*starts* with the given regular expression, in most cases you'll need to
+specify the caret if only if the regexp can match other test ids in your
+test suite. So, for example, with a test suite containing tests with ids
+`a.b.foo`, `foo.x` and `foo.y`, `sst-run foo` will select all tests whereas
+`sst-run ^foo` will only select `foo.x` and `foo.y`.
+
+Combining test patterns and ``--exclude`` patterns should allow any subset
+of the test suite to be selected. This is a powerful way to reduce the time
+needed to run only the tests you care about at a given time, running the
+whole test suite should still be used when you want to ensure no regressions
+have been introduced.
+
+-------------------------------------
+    Using sst in unittest test suites
+-------------------------------------
+
+sst uses unittest test cases internally to wrap the execution of the script
+and taking care of starting and stopping the browser. If you prefer to
+integrate some sst tests into an existing unittest test suite you can use
+SSTTestCase from runtests.py::
+
+  from sst.actions import *
+  from sst import runtests
+
+  class TestUbuntu(runtests.SSTTestCase):
+
+      def test_ubuntu_home_page(self):
+          go_to('http://www.ubuntu.com/')
+          assert_title_contains('Ubuntu')
+
+So, with the above in a file name test_ubuntu.py you can run the test with
+(for example)::
+
+  python -m unittest test_ubuntu.py
+
+`sst-run` provides an headless xserver via the `-x` option. `SSTTestCase`
+provides the same feature (sharing the same implementation) via two class
+attributes.
+
+`xserver_headless` when set to `True` will start an headless server for each
+test (and stop it after the test). If you want to share the same server
+across several tests, set `xvfb`. You're then responsible for starting and
+stopping this server (see `src/sst/xvfbdisplay.py` for details or
+`src/sst/tests/test_xvfb.py` for examples.
+
+
 --------------------
     Shared directory
 --------------------
@@ -236,9 +340,6 @@ information::
     # full path to the results directory
     config.results_directory
 
-    # is browsermob proxy enabled?
-    config.browsermob_enabled
-
     # flags for the current test run
     config.flags
 
@@ -249,7 +350,7 @@ information::
     Disabling Javascript
 ------------------------
 
-If you need to disable Javascript for an individual test you can do it by
+If you need to disable Javascript for an individual test, you can do it by
 putting the following at the start of the test::
 
     JAVASCRIPT_DISABLED = True
@@ -263,15 +364,27 @@ putting the following at the start of the test::
   work fine on other platforms, but any issues (or even better - patches)
   should be reported on the Launchpad project.
 
-* Get a copy of SST Trunk, install requirements, and run self-tests/examples
-  from the branch::
+* Get a copy of SST Trunk, create and activate a virtualenv, install requirements, 
+  and run examples/self-tests from the dev branch::
 
-    $ sudo apt-get install bzr python-pip xvfb
+    $ sudo apt-get install bzr python-virtualenv xvfb
     $ bzr branch lp:selenium-simple-test
     $ cd selenium-simple-test
-    $ sudo pip install -U -r requirements.txt
-    $ ./sst-run --test -x
-    $ ./sst-run -d examples
+    $ virtualenv ENV
+    $ source ENV/bin/activate
+    (ENV)$ pip install -r requirements.txt
+    (ENV)$ ./sst-run -d examples
+    
+* (optional) Install test dependencies and run SST's internal unit tests::
+
+    (ENV)$ pip install mock nose pep8
+    (ENV)$ nosetests --match ^test_.* --exclude="ENV|testproject|selftests"
+
+* (optional) Install `django` and run SST's internal test application with
+  acceptance tests
+
+    (ENV)$ pip install django
+    (ENV)$ ./sst-run --test -x
 
 * `Launchpad Project <https://launchpad.net/selenium-simple-test>`_
 
@@ -281,10 +394,8 @@ putting the following at the start of the test::
 * To manually setup dependencies, SST uses the following non-stdlib packages:
 
     * selenium
-    * unittest2
-    * junitxml
+    * testtools
     * django (optional - needed for internal self-tests only)
-
 
 ------------------------
     Running the examples
@@ -310,90 +421,6 @@ local branch like this::
 
     $ ./sst-run --test
 
----------------------------------
-Using sst in unittest test suites
----------------------------------
-
-sst uses unittest test cases internally to wrap the execution of the script
-and taking care of starting and stopping the browser. If you prefer to
-integrate some sst tests into an existing unittest test suite you can use
-SSTTestCase from runtests.py::
-
-  from sst.actions import *
-  from sst import runtests
-
-  class TestUbuntu(runtests.SSTTestCase):
-
-      def test_ubuntu_home_page(self):
-          go_to('http://www.ubuntu.com/')
-          assert_title_contains('Ubuntu')
-
-So, with the above in a file name test_ubuntu.py you can run the test with
-(for example)::
-
-  python -m unittest test_ubuntu.py
-
-`sst-run` provides an headless xserver via the `-x` option. `SSTTestCase`
-provides the same feature (sharing the same implementation) via two class
-attributes.
-
-`xserver_headless` when set to `True` will start an headless server for each
-test (and stop it after the test). If you want to share the same server
-across several tests, set `xvfb`. You're then responsible for starting and
-stopping this server (see `src/sst/xvfbdisplay.py` for details or
-`src/sst/tests/test_xvfb.py` for examples.
-
-
----------------------------------------------------
-    Performance tracing with Browsermob Proxy (HAR)
----------------------------------------------------
-
-SST can generate `HAR (HTTP Archive format)
-<http://www.softwareishard.com/blog/har-12-spec/>`_ output for performance
-profiling and tracing.
-
-HAR format is based on JSON, and is used by tools that consume/produce data
-collected by monitoring HTTP communication. These files contain a log of HTTP
-client/server conversation and can be used for additional analysis of page
-load performance.
-
-This is achieved by routing browser requests through `BrowserMob Proxy
-<https://github.com/webmetrics/browsermob-proxy>`_, which records web page
-loads while your tests run.  SST will launch the proxy and save output to
-.har files if you enable the ``--browsermob`` command line option.  HAR files
-are saved in the `results` directory for each page load.
-
-* Setup Browsermob Proxy
-
- * install a Java runtime::
-
-    $ sudo apt-get install default-jre
-
- * download latest `browsermob-proxy-*.zip`:
-
-  * `GitHub browsermob-proxy/downloads <https://github.com/webmetrics/browsermob-proxy/downloads>`_
-
- * unzip archive, and give execute permissions to the launcher script::
-
-    $ chmod +x bin/browsermob-proxy
-
-* Invoke SST using the ``--browsermob`` option, providing location of the launcher.
-
- * Example::
-
-    $ sst-run mytest --browsermob=/home/foo/browsermob-proxy/bin/browsermob-proxy
-
-* HAR analysis tools:
-
- * `harviewer <http://code.google.com/p/harviewer/>`_
- * `HTTP Archive Viewer <http://www.softwareishard.com/har/viewer/>`_
- * `PCAP Web Performance Analyzer <http://pcapperf.appspot.com/>`_
-
-* Browsermob integration notes:
-
- * not yet working for SSL sites
- * does not record local requests.  test against remote servers only.
-
 
 -----------------
     Related links
@@ -403,5 +430,3 @@ are saved in the `results` directory for each page load.
 * `Selenium WebDriver (from 'Architecture of Open Source Applications')
   <http://www.aosabook.org/en/selenium.html>`_
 * `Python Unittest <http://docs.python.org/library/unittest.html>`_
-* `unittest2 <http://pypi.python.org/pypi/unittest2/>`_
-

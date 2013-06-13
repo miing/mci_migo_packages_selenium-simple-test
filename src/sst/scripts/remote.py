@@ -23,13 +23,16 @@ import testtools
 
 testtools.try_import('selenium')
 
-from sst import runtests
-from sst.command import clear_old_results, get_opts_remote
+from sst import (
+    command,
+    runtests,
+)
+
 
 def main():
-    cmd_opts, args = get_opts_remote()
+    cmd_opts, args = command.get_opts_remote()
 
-    clear_old_results()
+    command.clear_old_results()
 
     print '--------------------------------------------------------------'
 
@@ -52,6 +55,8 @@ def main():
         failfast=cmd_opts.failfast,
         debug=cmd_opts.debug,
         extended=cmd_opts.extended_tracebacks,
+        # FIXME: not tested -- vila 2013-05-23
+        excludes=cmd_opts.excludes
     )
 
     print '--------------------------------------------------------------'

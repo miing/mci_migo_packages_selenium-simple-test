@@ -1,11 +1,13 @@
-from sst.actions import *
+import sst
+import sst.actions
 
 
 # test get_page_source
 
-go_to('/')
+sst.actions.set_base_url('http://localhost:%s/' % sst.DEVSERVER_PORT)
+sst.actions.go_to('/')
 
-txt = get_page_source()
+txt = sst.actions.get_page_source()
 
 assert (txt != '')
 assert '<html' in txt
@@ -15,7 +17,7 @@ assert '<body>' in txt
 
 # test get_element_source
 
-elems = get_elements(tag='p')
+elems = sst.actions.get_elements(tag='p')
 for elem in elems:
-    txt = get_element_source(elem)
+    txt = sst.actions.get_element_source(elem)
     assert (len(txt) >= 0)

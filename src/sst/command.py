@@ -28,6 +28,7 @@ import optparse
 import sst
 from sst import (
     actions,
+    browsers,
     config,
     runtests,
 )
@@ -55,11 +56,11 @@ def get_common_options():
                       help='directory of test case files')
     parser.add_option('-r', dest='report_format',
                       default='console',
-                      help='results report format (html, xml, console)')
+                      help='valid report types: xml)')
     parser.add_option('-b', dest='browser_type',
                       default='Firefox',
                       help=('select webdriver (Firefox, Chrome, '
-                            'Opera, PhantomJS, etc)'))
+                            'PhantomJS, etc)'))
     parser.add_option('-j', dest='javascript_disabled',
                       default=False, action='store_true',
                       help='disable javascript in browser')
@@ -90,25 +91,27 @@ def get_common_options():
                       'to flags')
     parser.add_option('--extended-tracebacks', dest='extended_tracebacks',
                       action='store_true', default=False,
-                      help='Add extra information (page source) to failure '
+                      help='add extra information (page source) to failure'
                       'reports')
     parser.add_option('--collect-only', dest='collect_only',
                       action='store_true', default=False,
-                      help='Collect/print cases without running tests')
+                      help='collect/print cases without running tests')
+    parser.add_option(
+        '-e', '--exclude', dest='excludes',
+        action='append',
+        help='all tests matching this regular expression will not be run')
     return parser
 
 
 def get_run_options():
     parser = get_common_options()
-    parser.add_option('--browsermob', dest='browsermob',
-                      help='enable browsermob proxy (launcher location)')
     parser.add_option('--test',
                       dest='run_tests', action='store_true',
                       default=False,
-                      help='run selftests')
+                      help='run selftests (acceptance tests using django)')
     parser.add_option('-x', dest='xserver_headless',
                       default=False, action='store_true',
-                      help='run browser in headless xserver')
+                      help='run browser in headless xserver (Xvfb)')
     return parser
 
 
@@ -134,17 +137,17 @@ def get_remote_options():
     return parser
 
 
-def get_opts_run():
-    return get_opts(get_run_options)
+def get_opts_run(args=None):
+    return get_opts(get_run_options, args)
 
 
-def get_opts_remote():
-    return get_opts(get_remote_options)
+def get_opts_remote(args=None):
+    return get_opts(get_remote_options, args)
 
 
-def get_opts(get_options):
+def get_opts(get_options, args=None):
     parser = get_options()
-    (cmd_opts, args) = parser.parse_args()
+    (cmd_opts, args) = parser.parse_args(args)
 
     if cmd_opts.print_version:
         print 'SST version: %s' % sst.__version__
@@ -152,15 +155,15 @@ def get_opts(get_options):
 
     run_tests = getattr(cmd_opts, 'run_tests', False)
     if cmd_opts.dir_name == '.' and not args and not run_tests:
-        print ('Error: you must supply a test case name or specifiy a '
-               'directory.')
+        print ('Error: you must supply a test case regular expression'
+               ' or specifiy a directory.')
         prog = os.path.split(__main__.__file__)[-1]
         print 'run "%s -h" or "%s --help" to see run options.' % (prog, prog)
         sys.exit(1)
 
-    if cmd_opts.browser_type not in runtests.browser_factories:
+    if cmd_opts.browser_type not in browsers.browser_factories:
         print ("Error: %s should be one of %s"
-               % (cmd_opts.browser_type, runtests.browser_factories.keys))
+               % (cmd_opts.browser_type, runtests.browser_factories.keys()))
         sys.exit(1)
 
     logging.basicConfig(format='    %(levelname)s:%(name)s:%(message)s')

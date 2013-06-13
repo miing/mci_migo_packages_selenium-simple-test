@@ -3,7 +3,7 @@
 # Continuous Integration script for SST
 #
 #  Options:
-#    --bootstrap, --flake8, --unit, ---acceptance=BROWSER
+#    --bootstrap, --flake8, --unit, --acceptance BROWSER
 #
 #  Example:
 #    bootstrap environment, run static checks, run unit tests, run
@@ -11,13 +11,13 @@
 #
 #    $ ./ci.sh --bootstrap --flake8 --unit --acceptance
 #
-#    * BROWSER options are "Firefox/Chrome/PhantomJS.  Default is "Firefox".
+#    * BROWSER options are Firefox/Chrome/PhantomJS/etc.  Default is "Firefox".
 #
 #  Instructions:
-#   1. ensure you have Xvfb, Firefox or Chrome/Chromium installed
+#   1. ensure you have Xvfb, Firefox or other supported browser installed
 #   2. $ bzr branch lp:selenium-simple-test
 #   3. cd selenium-simple-test
-#   4. run this this script
+#   4. run this script
 #
 
 
@@ -74,7 +74,10 @@ else
 fi
 
 echo "setting path..."
-PATH=sst-deps/bin:$PATH  # so bindings find chromedriver and phantomjs
+PWD=`pwd`
+DEPS_DIR="$PWD/sst-deps/bin"  # webdrivers are in bin directory of branch we pulled in bootstrap
+PATH=$DEPS_DIR:$PATH  # so bindings find chromedriver and phantomjs
+echo "  added: '$DEPS_DIR' to PATH"
 
 echo "----------------------------------"
 echo "environment info:"
@@ -86,15 +89,14 @@ python -c "import selenium; print 'Selenium %s' % selenium.__version__"
 if [ -n "$FLAKE8" ]; then
     echo "----------------------------------"
     echo "running flake8 (pyflakes/pep8) checks..."
-    flake8 src/ docs/ sst-* *.py > flake8.log
-    cat flake8.log | grep -v ': W'  # print errors, but not warnings
+    flake8 src/ docs/ sst-* *.py
 fi
 
 if [ -n "$UNIT" ]; then
     echo "----------------------------------"
     echo "running unit tests..."
     # this generates 'nosetests.xml' in top dir
-    nosetests --verbosity=2 --with-xunit -m ^test_.* -e ENV -e testproject -e selftests
+    nosetests --verbosity=2 --with-xunit -m ^test_.* -e ENV -e testproject -e selftests -s
 fi
 
 if [ -n "$BROWSER" ]; then

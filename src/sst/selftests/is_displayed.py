@@ -1,9 +1,9 @@
-"""Test the assert_displayed action."""
+import sst
+import sst.actions
 
-from sst.actions import *
 
+sst.actions.set_base_url('http://localhost:%s/' % sst.DEVSERVER_PORT)
+sst.actions.go_to('/')
 
-go_to('/')
-
-assert_displayed('select_with_id_1')
-fails(assert_displayed, 'hidden_input')
+sst.actions.assert_displayed('select_with_id_1')
+sst.actions.fails(sst.actions.assert_displayed, 'hidden_input')
